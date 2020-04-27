@@ -3,7 +3,7 @@ from functools import partial
 from collections import defaultdict
 from tqdm import tqdm
 
-from game import run_turn_based_game
+from games.game import run_turn_based_game
 
 rng = np.random.default_rng()
 
