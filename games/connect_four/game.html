@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Connect Four</title>
+
+    <style>
+        #page-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #content-box {
+            height: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-around;
+        }
+    </style>
+</head>
+<body>
+
+<div id="page-box">
+    <div id="content-box">
+        <h1>Connect Four</h1>
+        <span id="playerInfo">Red's turn</span>
+        <svg width="700" height="600">
+            <rect width="700" height="600" fill="blue"></rect>
+        </svg>
+        <button onclick="onNewGameButton()">New game</button>
+    </div>
+</div>
+
+</body>
+</html>
+
+<script>
+    function request(mode, target, callback) {
+        let request = new XMLHttpRequest();
+        request.open(mode, "http://localhost:8000/" + target);
+        request.addEventListener("readystatechange", (event) => {
+            if (request.readyState === 4) {
+                callback(request.response, request.status);
+            }
+        });
+        request.send();
+    }
+
+    function onNewGameButton() {
+        request("PATCH", "restart", processGameStateResponse);
+    }
+
+    function changeText(winner, player) {
+        let names = {1: 'red', 2: 'yellow'};
+        let text = document.getElementById("playerInfo");
+        if (winner) {
+            text.innerText = names[winner] + " wins!";
+        } else {
+            text.innerText = names[player] + "'s turn!";
+        }
+    }
+
+    function refreshBoard(gameState) {
+        let colors = ["white", "red", "yellow"];
+
+        for (let y = 0; y < 6; y++) {
+            for (let x = 0; x < 7; x++) {
+                let circleId = y + "" + x;
+                let circle = svg.getElementById(circleId);
+                circle.setAttribute("fill", colors[gameState[y][x]]);
+            }
+        }
+    }
+
+
+    function processGameStateResponse(response, statusCode) {
+        if(statusCode === 200) {
+            response = JSON.parse(response);
+                refreshBoard(response.gameState);
+                changeText(response.winner, response.player);
+        }
+    }
+
+
+    function onClick(element) {
+        let circleId = element.target.id;
+        request("PATCH", "move?id=" + circleId, processGameStateResponse);
+    }
+
+    var svg = document.querySelector("svg");
+    for (let x = 0; x < 7; x++) {
+        for (let y = 0; y < 6; y++) {
+            let circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", 50 + 100 * x);
+            circle.setAttribute("cy", 50 + 100 * y);
+            circle.setAttribute("r", 40);
+            circle.setAttribute("fill", "white");
+            circle.id = y + "" + x;
+            circle.addEventListener("click", onClick);
+            svg.appendChild(circle);
+        }
+    }
+
+    request("GET", "gamestate", processGameStateResponse);
+
+
+</script>
