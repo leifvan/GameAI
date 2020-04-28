@@ -28,6 +28,10 @@ class TurnBasedGame(ABC):
     def end_condition(self):
         ...
 
+    @abstractmethod
+    def legal_state_condition(self):
+        ...
+
     def print_state(self):
         print(self.game_state)
 
@@ -36,6 +40,10 @@ class TurnBasedGame(ABC):
             raise Exception("Game has already ended.")
 
         self.game_state = new_game_state
+
+        if not self.legal_state_condition():
+            raise Exception("Illegal state change.")
+
         self.player = (self.player + 1) % self.num_players
 
         self.winner = self.victory_condition()

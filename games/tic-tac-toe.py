@@ -27,6 +27,9 @@ class TicTacToeGame(TurnBasedGame):
     def end_condition(self):
         return not move_still_possible(self.game_state)
 
+    def legal_state_condition(self):
+        return True
+
     def print_state(self):
         for row in self.game_state:
             print(' '.join(symbols[v] for v in row))
