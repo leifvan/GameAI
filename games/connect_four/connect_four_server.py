@@ -32,6 +32,14 @@ if __name__ == '__main__':
         game = ConnectFourGame()
         return game_to_dict(game)
 
+    @patch("/aimove")
+    def make_ai_move():
+        if game.winner or game.game_ended:
+            abort(400, text="Game ended.")
+
+        game.move(winning_or_random_move(game.game_state, game.player+1))
+        return game_to_dict(game)
+
 
     @patch("/move")
     def make_move():

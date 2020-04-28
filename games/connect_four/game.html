@@ -18,6 +18,12 @@
             align-items: center;
             justify-content: space-around;
         }
+
+        #button-box {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-around;
+        }
     </style>
 </head>
 <body>
@@ -29,7 +35,11 @@
         <svg width="700" height="600">
             <rect width="700" height="600" fill="blue"></rect>
         </svg>
-        <button onclick="onNewGameButton()">New game</button>
+        <div>
+            <button onclick="onNewGameButton()">New game</button>
+            <button onclick="onAIMoveButton()">Make AI move</button>
+        </div>
+
     </div>
 </div>
 
@@ -50,6 +60,10 @@
 
     function onNewGameButton() {
         request("PATCH", "restart", processGameStateResponse);
+    }
+
+    function onAIMoveButton() {
+        request("PATCH", "aimove", processGameStateResponse);
     }
 
     function changeText(winner, player) {
