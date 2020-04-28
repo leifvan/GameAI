@@ -3,25 +3,54 @@ from functools import partial
 from collections import defaultdict
 from tqdm import tqdm
 
-from games.game import run_turn_based_game
+from games.game import TurnBasedGame
 
 rng = np.random.default_rng()
 
-
-def victory_condition(game_state):
-    if move_was_winning_move(game_state, 1):
-        return 0
-    elif move_was_winning_move(game_state, -1):
-        return 1
-    return None
+# python dictionary to map integers (1, -1, 0) to characters ('x', 'o', ' ')
+symbols = {1: 'x', -1: 'o', 0: ' '}
 
 
-def end_condition(game_state):
-    return not move_still_possible(game_state)
+class TicTacToeGame(TurnBasedGame):
+    num_players = 2
+
+    def get_initial_game_state(self):
+        return np.zeros((3,3))
+
+    def victory_condition(self):
+        if move_was_winning_move(self.game_state, 1):
+            return 0
+        elif move_was_winning_move(self.game_state, -1):
+            return 1
+        return None
+
+    def end_condition(self):
+        return not move_still_possible(self.game_state)
+
+    def print_state(self):
+        for row in self.game_state:
+            print(' '.join(symbols[v] for v in row))
+        print("-" * 5)
 
 
 def move_still_possible(S):
     return not (S[S == 0].size == 0)
+
+
+def move_was_winning_move(S, p):
+    if np.max((np.sum(S, axis=0)) * p) == 3:
+        return True
+
+    if np.max((np.sum(S, axis=1)) * p) == 3:
+        return True
+
+    if (np.sum(np.diag(S)) * p) == 3:
+        return True
+
+    if (np.sum(np.diag(np.rot90(S))) * p) == 3:
+        return True
+
+    return False
 
 
 def move_at_random(S, p):
@@ -48,50 +77,22 @@ def select_winning_move_or_weighted(game_state, p, weights):
 
     # check if other player can win and block
     for px, py in positions:
-        game_state[px,py] = -p
+        game_state[px, py] = -p
         if move_was_winning_move(game_state, -p):
-            game_state[px,py] = p
+            game_state[px, py] = p
             return game_state
-        game_state[px,py] = 0
+        game_state[px, py] = 0
 
     # check if this player can win
     for px, py in positions:
-        game_state[px,py] = p
+        game_state[px, py] = p
         if move_was_winning_move(game_state, p):
             return game_state
-        game_state[px,py] = 0
+        game_state[px, py] = 0
 
     # choose randomly
     return move_at_random_weighted(game_state, p, weights)
 
-
-def move_was_winning_move(S, p):
-    if np.max((np.sum(S, axis=0)) * p) == 3:
-        return True
-
-    if np.max((np.sum(S, axis=1)) * p) == 3:
-        return True
-
-    if (np.sum(np.diag(S)) * p) == 3:
-        return True
-
-    if (np.sum(np.diag(np.rot90(S))) * p) == 3:
-        return True
-
-    return False
-
-
-# python dictionary to map integers (1, -1, 0) to characters ('x', 'o', ' ')
-symbols = {1: 'x',
-           -1: 'o',
-           0: ' '}
-
-
-# print game state matrix using characters
-def print_game_state(game_state):
-    for row in game_state:
-        print(' '.join(symbols[v] for v in row))
-    print("-"*5)
 
 
 if __name__ == '__main__':
@@ -111,18 +112,13 @@ if __name__ == '__main__':
     winning_move_strats = [partial(select_winning_move_or_weighted, p=1, weights=win_probs),
                            partial(move_at_random, p=-1)]
 
-
-    strats_to_use = winning_move_strats
+    strats_to_use = random_strats
 
     # --------------------------------------
     # run a single game and print all states
     # --------------------------------------
 
-    winner, _ = run_turn_based_game(victory_condition=victory_condition,
-                                    end_condition=end_condition,
-                                    player_strategies=strats_to_use,
-                                    initial_game_state=np.zeros((3,3), dtype=int),
-                                    print_fn=print_game_state)
+    winner, _ = TicTacToeGame().run(strats_to_use, print_states=True)
 
     print("player", winner, "won the game")
 
@@ -134,10 +130,7 @@ if __name__ == '__main__':
     auspicious_positions = np.zeros((3, 3), dtype=int)
 
     for i in tqdm(range(10000)):
-        winner, final_state = run_turn_based_game(victory_condition=victory_condition,
-                                                  end_condition=end_condition,
-                                                  player_strategies=strats_to_use,
-                                                  initial_game_state=np.zeros((3, 3), dtype=int))
+        winner, final_state = TicTacToeGame().run(strats_to_use)
         wins[winner] += 1
 
         if winner == 0:

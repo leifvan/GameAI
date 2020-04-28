@@ -1,26 +1,55 @@
-import numpy as np
+import asyncio
+from inspect import iscoroutinefunction
+from abc import ABC, abstractmethod
 
 # victory_condition(game_state) => winner or None
 # end_condition(game_state) => True (no more moves) or False
 # player_strategy(game_state) => new game state
 
 
-def run_turn_based_game(victory_condition, end_condition, player_strategies, initial_game_state,
-                        print_fn=None):
-    game_state = initial_game_state
-    num_players = len(player_strategies)
-    player = 0
-    winner = None
+class TurnBasedGame(ABC):
+    num_players = 1
 
-    if print_fn:
-        print_fn(game_state)
+    def __init__(self):
+        self.game_state = self.get_initial_game_state()
+        self.player = 0
+        self.winner = None
+        self.game_ended = False
 
-    while not winner and not end_condition(game_state):
-        game_state = player_strategies[player](game_state)
-        player = (player + 1) % num_players
-        winner = victory_condition(game_state)
+    @abstractmethod
+    def get_initial_game_state(self):
+        ...
 
-        if print_fn:
-            print_fn(game_state)
+    @abstractmethod
+    def victory_condition(self):
+        ...
 
-    return winner, game_state
+    @abstractmethod
+    def end_condition(self):
+        ...
+
+    def print_state(self):
+        print(self.game_state)
+
+    def move(self, new_game_state):
+        if self.game_ended:
+            raise Exception("Game has already ended.")
+
+        self.game_state = new_game_state
+        self.player = (self.player + 1) % self.num_players
+
+        self.winner = self.victory_condition()
+        self.game_ended = self.end_condition()
+
+    def run(self, player_strategies, print_states=False):
+        if print_states:
+            self.print_state()
+
+        while not self.winner and not self.game_ended:
+            self.move(player_strategies[self.player](self.game_state))
+
+            if print_states:
+                self.print_state()
+
+        return self.winner, self.game_state
+
