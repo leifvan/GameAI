@@ -14,20 +14,24 @@ symbols = {1: 'x', -1: 'o', 0: ' '}
 class TicTacToeGame(TurnBasedGame):
     num_players = 2
 
-    def get_initial_game_state(self):
-        return np.zeros((3,3))
+    @staticmethod
+    def get_initial_game_state():
+        return np.zeros((3, 3))
 
-    def victory_condition(self):
-        if move_was_winning_move(self.game_state, 1):
+    @staticmethod
+    def victory_condition(game_state):
+        if move_was_winning_move(game_state, 1):
             return 0
-        elif move_was_winning_move(self.game_state, -1):
+        elif move_was_winning_move(game_state, -1):
             return 1
         return None
 
-    def end_condition(self):
-        return not move_still_possible(self.game_state)
+    @staticmethod
+    def end_condition(game_state):
+        return not move_still_possible(game_state)
 
-    def legal_state_condition(self):
+    @staticmethod
+    def legal_state_condition(game_state):
         return True
 
     def print_state(self):
@@ -78,6 +82,13 @@ def move_at_random_weighted(game_state, p, weights):
 def select_winning_move_or_weighted(game_state, p, weights):
     positions = np.transpose(np.nonzero(game_state == 0))
 
+    # check if this player can win
+    for px, py in positions:
+        game_state[px, py] = p
+        if move_was_winning_move(game_state, p):
+            return game_state
+        game_state[px, py] = 0
+
     # check if other player can win and block
     for px, py in positions:
         game_state[px, py] = -p
@@ -86,16 +97,8 @@ def select_winning_move_or_weighted(game_state, p, weights):
             return game_state
         game_state[px, py] = 0
 
-    # check if this player can win
-    for px, py in positions:
-        game_state[px, py] = p
-        if move_was_winning_move(game_state, p):
-            return game_state
-        game_state[px, py] = 0
-
     # choose randomly
     return move_at_random_weighted(game_state, p, weights)
-
 
 
 if __name__ == '__main__':
@@ -115,7 +118,7 @@ if __name__ == '__main__':
     winning_move_strats = [partial(select_winning_move_or_weighted, p=1, weights=win_probs),
                            partial(move_at_random, p=-1)]
 
-    strats_to_use = random_strats
+    strats_to_use = winning_move_strats
 
     # --------------------------------------
     # run a single game and print all states
