@@ -133,14 +133,14 @@ class SelectBestMinMaxStrategy:
 
     def __call__(self, game_state):
         # reset if game_state is initial
-        if np.allclose(game_state, TicTacToeGame.get_initial_game_state()):
+        if np.count_nonzero(game_state) < 2:
             self.cur_node = self.game_tree.root
-        else:
-            # find the node for corresponding game state
-            for child in self.cur_node.children:
-                if np.allclose(self.game_tree.get_state(child), game_state):
-                    self.cur_node = child
-                    break
+
+        # find the node for corresponding game state
+        for child in self.cur_node.children:
+            if np.allclose(self.game_tree.get_state(child), game_state):
+                self.cur_node = child
+                break
 
         _, best_node = self.cur_node.mmv(self.player_type, self.tie_strategy)
         new_state = TicTacToeGame.make_move(game_state, best_node.move)
@@ -166,7 +166,7 @@ if __name__ == '__main__':
                            partial(move_at_random, p=-1)]
 
     # player 1 plays with min max
-    minmax_strats = [SelectBestMinMaxStrategy('max', 'best'), partial(move_at_random, p=-1)]
+    minmax_strats = [SelectBestMinMaxStrategy('max', 'first'), partial(move_at_random, p=-1)]
 
     strats_to_use = minmax_strats
 
