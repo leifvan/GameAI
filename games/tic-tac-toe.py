@@ -44,9 +44,9 @@ class TicTacToeGame(TurnBasedGame):
     @staticmethod
     @njit
     def possible_moves(game_state):
-        moves = np.argwhere(game_state == 0)
-        cur_player = 1 if len(moves) % 2 == 1 else -1
-        return [(cur_player, move) for move in moves]
+        positions = np.argwhere(game_state == 0)
+        cur_player = 1 if len(positions) % 2 == 1 else -1
+        return [(cur_player, pos) for pos in positions]
 
     @staticmethod
     @njit
@@ -124,6 +124,30 @@ def select_winning_move_or_weighted(game_state, p, weights):
     return move_at_random_weighted(game_state, p, weights)
 
 
+class SelectBestMinMaxStrategy:
+    def __init__(self, player_type, tie_strategy):
+        self.game_tree = TicTacToeGame.get_full_game_tree()
+        self.cur_node = self.game_tree.root
+        self.player_type = player_type
+        self.tie_strategy = tie_strategy
+
+    def __call__(self, game_state):
+        # reset if game_state is initial
+        if np.allclose(game_state, TicTacToeGame.get_initial_game_state()):
+            self.cur_node = self.game_tree.root
+        else:
+            # find the node for corresponding game state
+            for child in self.cur_node.children:
+                if np.allclose(self.game_tree.get_state(child), game_state):
+                    self.cur_node = child
+                    break
+
+        _, best_node = self.cur_node.mmv(self.player_type, self.tie_strategy)
+        new_state = TicTacToeGame.make_move(game_state, best_node.move)
+        self.cur_node = best_node
+        return new_state
+
+
 if __name__ == '__main__':
 
     # completely random strategies
@@ -141,7 +165,10 @@ if __name__ == '__main__':
     winning_move_strats = [partial(select_winning_move_or_weighted, p=1, weights=win_probs),
                            partial(move_at_random, p=-1)]
 
-    strats_to_use = winning_move_strats
+    # player 1 plays with min max
+    minmax_strats = [SelectBestMinMaxStrategy('max', 'best'), partial(move_at_random, p=-1)]
+
+    strats_to_use = minmax_strats
 
     # --------------------------------------
     # run a single game and print all states

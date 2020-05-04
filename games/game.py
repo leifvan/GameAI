@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-from collections import defaultdict
-from collections import deque
+from collections import defaultdict, deque
 from operator import itemgetter
 from typing import Type
 
+from kids.cache import cache
 from tqdm import tqdm
 
 
@@ -22,6 +22,7 @@ class IllegalMoveException(Exception):
 
 class TurnBasedGame(ABC):
     num_players = 1
+    full_game_tree = None
 
     def __init__(self):
         self.game_state = self.get_initial_game_state()
@@ -73,7 +74,7 @@ class TurnBasedGame(ABC):
         self.player = (self.player + 1) % self.num_players
 
         self.winner = self.victory_condition(self.game_state)
-        self.game_ended = self.winner or self.end_condition(self.game_state)
+        self.game_ended = self.winner is not None or self.end_condition(self.game_state)
 
     def run(self, player_strategies, print_states=False):
         if print_states:
@@ -101,7 +102,10 @@ class TurnBasedGame(ABC):
         return wins
 
     @classmethod
-    def get_full_game_tree(cls, initial_state=None, starting_player=0):
+    def get_full_game_tree(cls, initial_state=None, starting_player=0, utility_fn='zero_sum'):
+        if cls.full_game_tree is not None:
+            return cls.full_game_tree
+
         initial_state = initial_state or cls.get_initial_game_state()
         game_tree = GameTree(cls, initial_state, starting_player)
 
@@ -112,8 +116,19 @@ class TurnBasedGame(ABC):
                 node, state = expand_queue.popleft()
                 game_tree.expand_node(node, state)
                 expand_queue.extend([(child, cls.make_move(state, child.move)) for child in node.children])
+
+                if utility_fn == 'zero_sum' and len(node.children) == 0:
+                    winner = cls.victory_condition(state)
+                    if winner == 0:
+                        node.utility = 1
+                    elif winner == 1:
+                        node.utility = -1
+                    else:
+                        node.utility = 0
+
                 pbar.update(1)
 
+        cls.full_game_tree = game_tree
         return game_tree
 
 
@@ -131,11 +146,12 @@ class GameTreeNode:
             path.append(path[-1].parent)
         return path
 
-    def mmv(self, node_type, tie_strategy='choose_first'):
+    @cache(key=lambda s, *args: (id(s), *args))
+    def mmv(self, node_type, tie_strategy='first'):
         if len(self.children) == 0:
             return self.utility, self
 
-        if tie_strategy == 'choose_first':
+        if tie_strategy == 'first':
             if node_type == 'max':
                 return max(((child.mmv('min', tie_strategy)[0], child)
                             for child in self.children),
@@ -147,7 +163,7 @@ class GameTreeNode:
 
             raise ValueError("node_type has to be one of 'max', 'min'.")
 
-        elif tie_strategy == 'choose_best':
+        elif tie_strategy == 'best':
             if node_type == 'max':
                 return max(((child.mmv('min', tie_strategy)[0], child, child.mmv('max', tie_strategy)[0])
                             for child in self.children),
@@ -159,7 +175,7 @@ class GameTreeNode:
 
             raise ValueError("node_type has to be one of 'max', 'min'.")
 
-        raise ValueError("tie_strategy has to be one of 'choose_first', 'choose_best'.")
+        raise ValueError("tie_strategy has to be one of 'first', 'best'.")
 
 
 class GameTree:
