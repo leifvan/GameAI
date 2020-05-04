@@ -148,6 +148,29 @@ class SelectBestMinMaxStrategy:
         return new_state
 
 
+class SelectBestAlphaBetaStrategy:
+    def __init__(self, player_type):
+        self.game_tree = TicTacToeGame.get_full_game_tree()
+        self.cur_node = self.game_tree.root
+        self.player_type = player_type
+
+    def __call__(self, game_state):
+        # reset if game_state is initial
+        if np.count_nonzero(game_state) < 2:
+            self.cur_node = self.game_tree.root
+
+        # find the node for corresponding game state
+        for child in self.cur_node.children:
+            if np.allclose(self.game_tree.get_state(child), game_state):
+                self.cur_node = child
+                break
+
+        _, best_node = self.cur_node.alpha_beta(self.player_type)
+        new_state = TicTacToeGame.make_move(game_state, best_node.move)
+        self.cur_node = best_node
+        return new_state
+
+
 if __name__ == '__main__':
 
     # completely random strategies
@@ -167,8 +190,9 @@ if __name__ == '__main__':
 
     # player 1 plays with min max
     minmax_strats = [SelectBestMinMaxStrategy('max', 'first'), partial(move_at_random, p=-1)]
+    alpha_beta_strats = [SelectBestAlphaBetaStrategy('max'), partial(move_at_random, p=-1)]
 
-    strats_to_use = minmax_strats
+    strats_to_use = alpha_beta_strats
 
     # --------------------------------------
     # run a single game and print all states

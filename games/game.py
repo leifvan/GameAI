@@ -3,6 +3,8 @@ from collections import defaultdict, deque
 from operator import itemgetter
 from typing import Type
 
+import math
+import random
 from kids.cache import cache
 from tqdm import tqdm
 
@@ -146,6 +148,32 @@ class GameTreeNode:
             path.append(path[-1].parent)
         return path
 
+    def __repr__(self):
+        return f"{type(self)} object with move={self.move}"
+
+    @cache(key=lambda s, *args: (id(s), *args))
+    def alpha_beta(self, node_type, alpha=-math.inf, beta=math.inf):
+        if len(self.children) == 0:
+            return self.utility, self
+
+        node = self
+
+        if node_type == 'max':
+            for child in random.sample(self.children, k=len(self.children)):
+                alpha, node = max((alpha, node), (child.alpha_beta('min', alpha, beta)[0], child),
+                                  key=itemgetter(0))
+                if alpha >= beta:
+                    return alpha, node
+            return alpha, node
+
+        elif node_type == 'min':
+            for child in random.sample(self.children, k=len(self.children)):
+                beta, node = min((beta, node), (child.alpha_beta('max', alpha, beta)[0], child),
+                                 key=itemgetter(0))
+                if beta <= alpha:
+                    return beta, node
+            return beta, node
+
     @cache(key=lambda s, *args: (id(s), *args))
     def mmv(self, node_type, tie_strategy='first'):
         if len(self.children) == 0:
@@ -233,40 +261,41 @@ if __name__ == '__main__':
     # create min max tree for task 3.1
     tree = GameTree(game_type=None, initial_state=0)
     # n1
-    n1 = GameTreeNode(None, parent=tree.root)
+    n1 = GameTreeNode("n1", parent=tree.root)
     tree.root.children.append(n1)
-    n1.children.append(GameTreeNode(None, parent=n1, utility=15))
-    n1.children.append(GameTreeNode(None, parent=n1, utility=20))
-    n1.children.append(GameTreeNode(None, parent=n1, utility=1))
-    n1.children.append(GameTreeNode(None, parent=n1, utility=3))
+    n1.children.append(GameTreeNode("n6", parent=n1, utility=15))
+    n1.children.append(GameTreeNode("n7", parent=n1, utility=20))
+    n1.children.append(GameTreeNode("n8", parent=n1, utility=1))
+    n1.children.append(GameTreeNode("n9", parent=n1, utility=3))
 
     # n2
-    n2 = GameTreeNode(None, parent=tree.root)
+    n2 = GameTreeNode("n2", parent=tree.root)
     tree.root.children.append(n2)
-    n2.children.append(GameTreeNode(None, parent=n2, utility=3))
-    n2.children.append(GameTreeNode(None, parent=n2, utility=4))
+    n2.children.append(GameTreeNode("n10", parent=n2, utility=3))
+    n2.children.append(GameTreeNode("n11", parent=n2, utility=4))
 
     # n3
-    n3 = GameTreeNode(None, parent=tree.root)
+    n3 = GameTreeNode("n3", parent=tree.root)
     tree.root.children.append(n3)
-    n3.children.append(GameTreeNode(None, parent=n3, utility=15))
-    n3.children.append(GameTreeNode(None, parent=n3, utility=10))
+    n3.children.append(GameTreeNode("n12", parent=n3, utility=15))
+    n3.children.append(GameTreeNode("n13", parent=n3, utility=10))
 
     # n4
-    n4 = GameTreeNode(None, parent=tree.root)
+    n4 = GameTreeNode("n4", parent=tree.root)
     tree.root.children.append(n4)
-    n4.children.append(GameTreeNode(None, parent=n4, utility=16))
-    n4.children.append(GameTreeNode(None, parent=n4, utility=4))
-    n4.children.append(GameTreeNode(None, parent=n4, utility=12))
+    n4.children.append(GameTreeNode("n14", parent=n4, utility=16))
+    n4.children.append(GameTreeNode("n15", parent=n4, utility=4))
+    n4.children.append(GameTreeNode("n16", parent=n4, utility=12))
 
     # n5
-    n5 = GameTreeNode(None, parent=tree.root)
+    n5 = GameTreeNode("n5", parent=tree.root)
     tree.root.children.append(n5)
-    n5.children.append(GameTreeNode(None, parent=n5, utility=15))
-    n5.children.append(GameTreeNode(None, parent=n5, utility=12))
-    n5.children.append(GameTreeNode(None, parent=n5, utility=8))
+    n5.children.append(GameTreeNode("n17", parent=n5, utility=15))
+    n5.children.append(GameTreeNode("n18", parent=n5, utility=12))
+    n5.children.append(GameTreeNode("n19", parent=n5, utility=8))
 
     print("mmv(n0) =", tree.root.mmv('max')[0])
+    print("ab(n0) =", tree.root.alpha_beta('max'))
 
     # -------------------------------------------------------------------------------------------
     # task 3.2 (but here n3 is better, because n1 would be chosen anyway because it is the first)
@@ -299,6 +328,8 @@ if __name__ == '__main__':
     n4.children.append(GameTreeNode("n16", parent=n4, utility=2))
 
     fmmv, fnode = tree.root.mmv('max')
-    bmmv, bnode = tree.root.mmv('max', 'choose_best')
+    bmmv, bnode = tree.root.mmv('max', 'best')
     print("first mmv(n0) =", fmmv, fnode.move)
     print(" best mmv(n0) =", bmmv, bnode.move)
+
+    print("ab(n0) =", tree.root.alpha_beta('max'))
