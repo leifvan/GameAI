@@ -187,4 +187,3 @@ if __name__ == '__main__':
     print(num_nodes,"nodes == state space complexity")
     print(num_leafs,"leafs == game tree size")
     print(f"{b:.5} average branching factor")
-
