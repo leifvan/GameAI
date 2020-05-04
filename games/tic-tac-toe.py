@@ -1,9 +1,9 @@
-import numpy as np
+from collections import defaultdict
 from functools import partial
-from collections import defaultdict, deque
-from tqdm import tqdm
-from itertools import product
+
+import numpy as np
 from numba import njit
+from tqdm import tqdm
 
 from games.game import TurnBasedGame
 
@@ -41,9 +41,25 @@ class TicTacToeGame(TurnBasedGame):
             print(' '.join(symbols[v] for v in row))
         print("-" * 5)
 
+    @staticmethod
+    @njit
+    def possible_moves(game_state):
+        moves = np.argwhere(game_state == 0)
+        cur_player = 1 if len(moves) % 2 == 1 else -1
+        return [(cur_player, move) for move in moves]
 
+    @staticmethod
+    @njit
+    def make_move(game_state, move):
+        new_state = np.copy(game_state)
+        pl, pos = move
+        new_state[pos[0], pos[1]] = pl
+        return new_state
+
+
+@njit
 def move_still_possible(S):
-    return not (S[S == 0].size == 0)
+    return np.count_nonzero(S) != 9
 
 
 @njit
@@ -65,20 +81,6 @@ def move_was_winning_move(S, p):
         return True
 
     return False
-
-    # if np.max((np.sum(S, axis=0)) * p) == 3:
-    #     return True
-    #
-    # if np.max((np.sum(S, axis=1)) * p) == 3:
-    #     return True
-    #
-    # if (np.sum(np.diag(S)) * p) == 3:
-    #     return True
-    #
-    # if (np.sum(np.diag(np.rot90(S))) * p) == 3:
-    #     return True
-    #
-    # return False
 
 
 def move_at_random(S, p):
@@ -176,35 +178,13 @@ if __name__ == '__main__':
     # generate a game tree and get some statistics
     # --------------------------------------------
 
-    num_nodes = num_leafs = num_branches = 0
-
-    op = list(product(range(3), repeat=2))
-    initial_state = TicTacToeGame.get_initial_game_state()
-
-    states_to_consider = deque([(initial_state,op, 1)])
-
-    with tqdm() as pbar:
-        while len(states_to_consider) > 0:
-            pbar.update(1)
-            state, open_positions, player = states_to_consider.popleft()
-
-            num_nodes += 1
-
-            if len(open_positions) == 0 or TicTacToeGame.victory_condition(state):
-                num_leafs += 1
-            else:
-                num_branches += len(open_positions)
-                for pos in open_positions:
-                    new_state = np.copy(state)
-                    new_state[pos[0], pos[1]] = player
-                    states_to_consider.append((new_state, [p for p in open_positions if p != pos], -1*player))
-
-            del state
-
-    b = num_branches / (num_nodes-num_leafs)
+    tree = TicTacToeGame.get_full_game_tree()
+    num_nodes, num_leafs, num_branches = tree.get_statistics()
+    b = num_branches / (num_nodes - num_leafs)
 
     print()
     print()
     print(num_nodes,"nodes == state space complexity")
     print(num_leafs,"leafs == game tree size")
     print(f"{b:.5} average branching factor")
+
