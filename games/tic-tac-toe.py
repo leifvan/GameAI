@@ -68,14 +68,14 @@ def move_was_winning_move(S, p):
     for i in range(3):
         row_acc = col_acc = 0
         for j in range(3):
-            row_acc += S[i,j] == p
-            col_acc += S[j,i] == p
+            row_acc += S[i, j] == p
+            col_acc += S[j, i] == p
 
         if row_acc == 3 or col_acc == 3:
             return True
 
-        diag_acc += S[i,i] == p
-        antidiag_acc += S[2-i, i] == p
+        diag_acc += S[i, i] == p
+        antidiag_acc += S[2 - i, i] == p
 
     if diag_acc == 3 or antidiag_acc == 3:
         return True
@@ -189,10 +189,10 @@ if __name__ == '__main__':
                            partial(move_at_random, p=-1)]
 
     # player 1 plays with min max
-    minmax_strats = [SelectBestMinMaxStrategy('max', 'first'), partial(move_at_random, p=-1)]
+    minmax_strats = [SelectBestMinMaxStrategy('max', 'best'), partial(move_at_random, p=-1)]
     alpha_beta_strats = [SelectBestAlphaBetaStrategy('max'), partial(move_at_random, p=-1)]
 
-    strats_to_use = alpha_beta_strats
+    strats_to_use = minmax_strats
 
     # --------------------------------------
     # run a single game and print all states
@@ -235,6 +235,6 @@ if __name__ == '__main__':
 
     print()
     print()
-    print(num_nodes,"nodes == state space complexity")
-    print(num_leafs,"leafs == game tree size")
+    print(num_nodes, "nodes == state space complexity")
+    print(num_leafs, "leafs == game tree size")
     print(f"{b:.5} average branching factor")
