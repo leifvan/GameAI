@@ -125,11 +125,13 @@ def select_winning_move_or_weighted(game_state, p, weights):
 
 
 class SelectBestMinMaxStrategy:
-    def __init__(self, player_type, tie_strategy):
-        self.game_tree = TicTacToeGame.get_full_game_tree()
+    def __init__(self, player_type, tie_strategy, game_tree, depth=2 ** 32, eval_fn=None):
+        self.game_tree = game_tree
         self.cur_node = self.game_tree.root
         self.player_type = player_type
         self.tie_strategy = tie_strategy
+        self.depth = depth
+        self.eval_fn = eval_fn
 
     def __call__(self, game_state):
         # reset if game_state is initial
@@ -142,15 +144,15 @@ class SelectBestMinMaxStrategy:
                 self.cur_node = child
                 break
 
-        _, best_node = self.cur_node.mmv(self.player_type, self.tie_strategy)
+        _, best_node = self.cur_node.mmv(self.player_type, self.tie_strategy, self.depth, self.eval_fn)
         new_state = TicTacToeGame.make_move(game_state, best_node.move)
         self.cur_node = best_node
         return new_state
 
 
 class SelectBestAlphaBetaStrategy:
-    def __init__(self, player_type):
-        self.game_tree = TicTacToeGame.get_full_game_tree()
+    def __init__(self, player_type, game_tree):
+        self.game_tree = game_tree
         self.cur_node = self.game_tree.root
         self.player_type = player_type
 
@@ -189,10 +191,44 @@ if __name__ == '__main__':
                            partial(move_at_random, p=-1)]
 
     # player 1 plays with min max
-    minmax_strats = [SelectBestMinMaxStrategy('max', 'best'), partial(move_at_random, p=-1)]
-    alpha_beta_strats = [SelectBestAlphaBetaStrategy('max'), partial(move_at_random, p=-1)]
+    game_tree = TicTacToeGame.get_full_game_tree()
 
-    strats_to_use = minmax_strats
+    minmax_strats = [SelectBestMinMaxStrategy('max', 'best', game_tree), partial(move_at_random, p=-1)]
+    alpha_beta_strats = [SelectBestAlphaBetaStrategy('max', game_tree), partial(move_at_random, p=-1)]
+
+    # player 1 plays with depth-restricted min max
+
+    @njit
+    def count_win_lines(game_state, player):
+        row_hits = [0, 0, 0]
+        col_hits = [0, 0, 0]
+        diag_hits = anti_diag_hits = 0
+
+        for i in range(3):
+            for j in range(3):
+                if game_state[i,j] == player or game_state[i,j] == 0:
+                    row_hits[i] += 1
+                    col_hits[j] += 1
+
+                    if i == j:
+                        diag_hits += 1
+                    elif i - 2 == j:
+                        anti_diag_hits += 1
+
+        hits = int(diag_hits == 3) + int(anti_diag_hits == 3)
+        for r,c in zip(row_hits, col_hits):
+            hits += int(r == 3) + int(c == 3)
+
+        return hits
+
+    def eval_fn(node):
+        game_state = game_tree.get_state(node)
+        return count_win_lines(game_state, 1) - count_win_lines(game_state, -1)
+
+    dr_minmax_strats = [SelectBestMinMaxStrategy('max', 'best', game_tree, depth=2, eval_fn=eval_fn),
+                        partial(move_at_random, p=-1)]
+
+    strats_to_use = dr_minmax_strats
 
     # --------------------------------------
     # run a single game and print all states

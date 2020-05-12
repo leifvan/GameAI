@@ -1,12 +1,14 @@
+import random
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from operator import itemgetter
 from typing import Type
 
 import math
-import random
 from kids.cache import cache
 from tqdm import tqdm
+
+from utils import fill_args_with_defaults
 
 
 # victory_condition(game_state) => winner or None
@@ -174,18 +176,22 @@ class GameTreeNode:
                     return beta, node
             return beta, node
 
-    @cache(key=lambda s, *args: (id(s), *args))
-    def mmv(self, node_type, tie_strategy='first'):
+    @fill_args_with_defaults
+    @cache(key=lambda s, nt, ts, d, ef: (id(s), nt, ts, d == 0, ef))
+    def mmv(self, node_type, tie_strategy='first', depth=2**32, eval_fn=None):
         if len(self.children) == 0:
             return self.utility, self
 
+        if depth == 0:
+            return eval_fn(self), self
+
         if tie_strategy == 'first':
             if node_type == 'max':
-                return max(((child.mmv('min', tie_strategy)[0], child)
+                return max(((child.mmv('min', tie_strategy, depth-1, eval_fn)[0], child)
                             for child in self.children),
                            key=itemgetter(0))
             if node_type == 'min':
-                return min(((child.mmv('max', tie_strategy)[0], child)
+                return min(((child.mmv('max', tie_strategy, depth-1, eval_fn)[0], child)
                             for child in self.children),
                            key=itemgetter(0))
 
@@ -193,11 +199,11 @@ class GameTreeNode:
 
         elif tie_strategy == 'best':
             if node_type == 'max':
-                return max(((child.mmv('min', tie_strategy)[0], child, child.mmv('max', tie_strategy)[0])
+                return max(((child.mmv('min', tie_strategy, depth-1, eval_fn)[0], child, child.mmv('max', tie_strategy, depth-1, eval_fn)[0])
                             for child in self.children),
                            key=itemgetter(0, 2))[:2]
             if node_type == 'min':
-                return min(((child.mmv('max', tie_strategy)[0], child, child.mmv('min', tie_strategy)[0])
+                return min(((child.mmv('max', tie_strategy, depth-1, eval_fn)[0], child, child.mmv('min', tie_strategy, depth-1, eval_fn)[0])
                             for child in self.children),
                            key=itemgetter(0, 2))[:2]
 
