@@ -1,12 +1,14 @@
 import random
 from abc import ABC, abstractmethod
-from collections import defaultdict, deque
+from collections import defaultdict, deque, Counter
 from operator import itemgetter
 from typing import Type
+import numpy as np
 
 import math
 from kids.cache import cache
 from tqdm import tqdm
+from itertools import product
 
 from utils import fill_args_with_defaults
 
@@ -84,7 +86,7 @@ class TurnBasedGame(ABC):
         if print_states:
             self.print_state()
 
-        while not self.winner and not self.game_ended:
+        while self.winner is None and not self.game_ended:
             self.move(player_strategies[self.player](self.game_state))
 
             if print_states:
@@ -106,12 +108,14 @@ class TurnBasedGame(ABC):
         return wins
 
     @classmethod
-    def get_full_game_tree(cls, initial_state=None, starting_player=0, utility_fn='zero_sum'):
+    def get_full_game_tree(cls, initial_state=None, starting_player=0, utility_fn='zero_sum', hash_fn=None):
         if cls.full_game_tree is not None:
             return cls.full_game_tree
 
         initial_state = initial_state or cls.get_initial_game_state()
         game_tree = GameTree(cls, initial_state, starting_player)
+
+        transposition_table = dict()
 
         with tqdm() as pbar:
             expand_queue = deque([(game_tree.root, initial_state)])
@@ -119,7 +123,21 @@ class TurnBasedGame(ABC):
             while len(expand_queue) > 0:
                 node, state = expand_queue.popleft()
                 game_tree.expand_node(node, state)
-                expand_queue.extend([(child, cls.make_move(state, child.move)) for child in node.children])
+
+                # check if we can hash the children
+                if hash_fn is not None:
+                    actual_new_nodes = list(node.children)
+                    for i, child in enumerate(node.children):
+                        h = hash_fn(game_tree.get_state(child))
+                        if h in transposition_table:
+                            actual_new_nodes.remove(child)
+                            node.children[i] = transposition_table[h]
+                        else:
+                            transposition_table[h] = child
+                else:
+                    actual_new_nodes = node.children
+
+                expand_queue.extend([(child, cls.make_move(state, child.move)) for child in actual_new_nodes])
 
                 if utility_fn == 'zero_sum' and len(node.children) == 0:
                     winner = cls.victory_condition(state)
@@ -153,7 +171,7 @@ class GameTreeNode:
     def __repr__(self):
         return f"{type(self)} object with move={self.move}"
 
-    @cache(key=lambda s, *args: (id(s), *args))
+    # @cache(key=lambda s, *args: (id(s), *args))
     def alpha_beta(self, node_type, alpha=-math.inf, beta=math.inf):
         if len(self.children) == 0:
             return self.utility, self
@@ -176,22 +194,27 @@ class GameTreeNode:
                     return beta, node
             return beta, node
 
-    @fill_args_with_defaults
-    @cache(key=lambda s, nt, ts, d, ef: (id(s), nt, ts, d == 0, ef))
-    def mmv(self, node_type, tie_strategy='first', depth=2**32, eval_fn=None):
+    #@fill_args_with_defaults
+    #@cache(key=lambda s, nt, ts, d, ef, t: (id(s), nt, ts, d == 0, ef, id(t)))
+    def mmv(self, node_type, tie_strategy='first', depth=2 ** 32, eval_fn=None, tree=None):
+        if not self.children and tree:
+            tree.expand_node(self)
+
         if len(self.children) == 0:
+            #print("returning utility", self.utility)
             return self.utility, self
 
         if depth == 0:
+            #print("returning eval", eval_fn(self))
             return eval_fn(self), self
 
         if tie_strategy == 'first':
             if node_type == 'max':
-                return max(((child.mmv('min', tie_strategy, depth-1, eval_fn)[0], child)
+                return max(((child.mmv('min', tie_strategy, depth - 1, eval_fn, tree)[0], child)
                             for child in self.children),
                            key=itemgetter(0))
             if node_type == 'min':
-                return min(((child.mmv('max', tie_strategy, depth-1, eval_fn)[0], child)
+                return min(((child.mmv('max', tie_strategy, depth - 1, eval_fn, tree)[0], child)
                             for child in self.children),
                            key=itemgetter(0))
 
@@ -199,11 +222,13 @@ class GameTreeNode:
 
         elif tie_strategy == 'best':
             if node_type == 'max':
-                return max(((child.mmv('min', tie_strategy, depth-1, eval_fn)[0], child, child.mmv('max', tie_strategy, depth-1, eval_fn)[0])
+                return max(((child.mmv('min', tie_strategy, depth - 1, eval_fn, tree)[0], child,
+                             child.mmv('max', tie_strategy, depth - 1, eval_fn, tree)[0])
                             for child in self.children),
                            key=itemgetter(0, 2))[:2]
             if node_type == 'min':
-                return min(((child.mmv('max', tie_strategy, depth-1, eval_fn)[0], child, child.mmv('min', tie_strategy, depth-1, eval_fn)[0])
+                return min(((child.mmv('max', tie_strategy, depth - 1, eval_fn, tree)[0], child,
+                             child.mmv('min', tie_strategy, depth - 1, eval_fn, tree)[0])
                             for child in self.children),
                            key=itemgetter(0, 2))[:2]
 
@@ -213,7 +238,7 @@ class GameTreeNode:
 
 
 class GameTree:
-    def __init__(self, game_type: Type[TurnBasedGame], initial_state=None, starting_player=0):
+    def __init__(self, game_type: Type[TurnBasedGame], initial_state=None, starting_player=0, terminal_utilities=None):
         self.game_type = game_type
 
         if initial_state is None:
@@ -223,6 +248,7 @@ class GameTree:
 
         self.starting_player = starting_player
         self.root = GameTreeNode(move=None, parent=None)
+        self.terminal_utilities = terminal_utilities
 
     def get_state(self, node: GameTreeNode):
         path = node.path_to_root()[::-1]
@@ -254,7 +280,9 @@ class GameTree:
         if state is None:
             state = self.get_state(node)
 
+        winner = self.game_type.victory_condition(state)
         if self.game_type.victory_condition(state) or self.game_type.end_condition(state):
+            node.utility = self.terminal_utilities[winner] if winner is not None else 0
             return
 
         possible_moves = self.game_type.possible_moves(state)

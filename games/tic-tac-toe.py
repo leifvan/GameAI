@@ -1,5 +1,6 @@
 from collections import defaultdict
 from functools import partial
+from itertools import product
 
 import numpy as np
 from numba import njit
@@ -81,6 +82,55 @@ def move_was_winning_move(S, p):
         return True
 
     return False
+
+
+def hash_flat_state(flat_state):
+    return sum((3 ** i) * (2 if s == -1 else s) for i, s in enumerate(flat_state))
+
+
+class TicTacToeStateHasher:
+    # TODO is not working btw
+    def __init__(self):
+        self.flat_hash_group_map = dict()
+        cur_state = 0
+
+        for state_flat in product([0, 1, -1], repeat=9):
+            state = np.reshape(state_flat, (3, 3))
+
+            if hash_flat_state((state_flat)) in self.flat_hash_group_map:
+                continue
+
+            #similar_states = [state, np.fliplr(state.copy()), np.flipud(state.copy())]
+            similar_states = [state]
+
+            rot = state.copy()
+            for _ in range(3):
+                rot = np.rot90(rot.copy())
+                similar_states.append(rot)
+
+            unique_hashes = [hash_flat_state(s.ravel()) for s in similar_states]
+
+            # # check if one of the states is already in map
+            # g = None
+            #
+            # for h in unique_hashes:
+            #     if h in self.flat_hash_group_map:
+            #         g = self.flat_hash_group_map[h]
+            #         break
+            #
+            # if not g:
+            g = cur_state
+            cur_state += 1
+
+            self.flat_hash_group_map.update({h: g for h in unique_hashes})
+
+        # group_flat_hash_map = defaultdict(list)
+        #
+        # for h, g in self.flat_hash_group_map.items():
+        #     group_flat_hash_map[g].append(h)
+
+    def __call__(self, game_state):
+        return self.flat_hash_group_map[hash_flat_state(game_state.ravel())]
 
 
 def move_at_random(S, p):
@@ -191,7 +241,7 @@ if __name__ == '__main__':
                            partial(move_at_random, p=-1)]
 
     # player 1 plays with min max
-    game_tree = TicTacToeGame.get_full_game_tree()
+    game_tree = TicTacToeGame.get_full_game_tree(hash_fn=TicTacToeStateHasher())
 
     minmax_strats = [SelectBestMinMaxStrategy('max', 'best', game_tree), partial(move_at_random, p=-1)]
     alpha_beta_strats = [SelectBestAlphaBetaStrategy('max', game_tree), partial(move_at_random, p=-1)]
@@ -225,10 +275,10 @@ if __name__ == '__main__':
         game_state = game_tree.get_state(node)
         return count_win_lines(game_state, 1) - count_win_lines(game_state, -1)
 
-    dr_minmax_strats = [SelectBestMinMaxStrategy('max', 'best', game_tree, depth=2, eval_fn=eval_fn),
+    dr_minmax_strats = [SelectBestMinMaxStrategy('max', 'best', game_tree, depth=10, eval_fn=eval_fn),
                         partial(move_at_random, p=-1)]
 
-    strats_to_use = dr_minmax_strats
+    strats_to_use = minmax_strats
 
     # --------------------------------------
     # run a single game and print all states
