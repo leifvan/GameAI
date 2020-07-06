@@ -23,19 +23,20 @@ export_name = f"plot_path1_k{k}"
 os.makedirs(f"p11_results/{export_name}", exist_ok=True)
 
 
-def dist(i,j, k):
+def dist(i,j):
     return min(abs(i-j), abs(k+i-j))
 
 
 t_max = 20000
 
+
 def plot_data_and_som(weights, t):
     fig = plt.figure()
     ax = Axes3D(fig)
-    ax.scatter(path[:, 0], path[:, 1], path[:, 2], alpha=0.2)
-    ax.scatter(weights[:, 0], weights[:, 1], weights[:, 2], c='C1')
-    ax.plot(weights[:, 0], weights[:, 1], weights[:, 2], c='C1')
-    ax.plot(weights[(-1, 0), 0], weights[(-1, 0), 1], weights[(-1, 0), 2], c='C1', alpha=1)
+    ax.scatter(path[:, 0], path[:, 1], path[:, 2], alpha=0.1, c='black', marker='o')
+    ax.scatter(weights[:, 0], weights[:, 1], weights[:, 2], c='blue', marker='o')
+    ax.plot(weights[:, 0], weights[:, 1], weights[:, 2], c='blue', marker='o')
+    ax.plot(weights[(-1, 0), 0], weights[(-1, 0), 1], weights[(-1, 0), 2], c='blue', marker='o')
     plt.title(f"k={len(weights)}, iteration {t}/{t_max}")
     plt.savefig(f"p11_results/{export_name}/{export_name}_{t}.png")
     plt.close()
@@ -58,7 +59,7 @@ def train_som(data, k, t_max, plot_fn, plot_every):
         i = np.argmin(np.linalg.norm(weights - x, axis=1))
 
         for j in range(k):
-            weights[j] += eta(t) * np.exp(-dist(i,j,k)/(2*sigma(t))) * (x - weights[j])
+            weights[j] += eta(t) * np.exp(-dist(i,j)/(2*sigma(t))) * (x - weights[j])
 
         if (t+1) % plot_every == 0:
             plot_fn(weights, t+1)
