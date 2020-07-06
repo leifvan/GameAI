@@ -16,27 +16,10 @@ def load_path_csv(path):
 path1 = load_path_csv("../data/q3dm1-path1.csv")
 path2 = load_path_csv("../data/q3dm1-path2.csv")
 
-# ax = Axes3D(plt.gcf())
-# ax.scatter(path1[:,0], path1[:,1], path1[:,2], alpha=0.3)
-# plt.show()
 
-# ax = Axes3D(plt.gcf())
-# ax.scatter(path2[:,0], path2[:,1], path2[:,2], alpha=0.3)
-# plt.show()
-
-
-def plot_data_and_som(data, weights, t, t_max):
-    ax = Axes3D(plt.gcf())
-    ax.scatter(data[:, 0], data[:, 1], data[:, 2], alpha=0.2)
-    ax.scatter(weights[:, 0], weights[:, 1], weights[:, 2], c='C1')
-    ax.plot(weights[:, 0], weights[:, 1], weights[:, 2], c='C1')
-    ax.plot(weights[(-1, 0), 0], weights[(-1, 0), 1], weights[(-1,0), 2], c='C1', alpha=1)
-    plt.title(f"k={len(weights)}, iteration {t}/{t_max}")
-
-
-k = 5
-path = path2
-export_name = f"plot_path2_k{k}"
+k = 50
+path = path1
+export_name = f"plot_path1_k{k}"
 os.makedirs(f"p11_results/{export_name}", exist_ok=True)
 
 
@@ -46,30 +29,42 @@ def dist(i,j, k):
 
 t_max = 20000
 
-def eta(t):
-    return 1 - t / t_max
-
-def sigma(t):
-    return np.exp(-t/t_max)
-
-
-# initialize weights with random samples from path
-weights = np.array(list(random.sample(list(path), k)))
-
-plot_data_and_som(path, weights, 0, t_max)
-plt.savefig(f"p11_results/{export_name}/{export_name}_0.png")
-
-for t in tqdm(range(t_max)):
-    x = random.choice(path)
-    d = np.linalg.norm(weights - x, axis=1)
-    i = np.argmin(d)
-    for j in range(k):
-        weights[j] += eta(t) * np.exp(-dist(i,j,k)/(2*sigma(t))) * (x - weights[j])
-
-    if (t+1) % 1000 == 0:
-        plot_data_and_som(path, weights, t+1, t_max)
-        plt.savefig(f"p11_results/{export_name}/{export_name}_{t+1}.png")
+def plot_data_and_som(weights, t):
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    ax.scatter(path[:, 0], path[:, 1], path[:, 2], alpha=0.2)
+    ax.scatter(weights[:, 0], weights[:, 1], weights[:, 2], c='C1')
+    ax.plot(weights[:, 0], weights[:, 1], weights[:, 2], c='C1')
+    ax.plot(weights[(-1, 0), 0], weights[(-1, 0), 1], weights[(-1, 0), 2], c='C1', alpha=1)
+    plt.title(f"k={len(weights)}, iteration {t}/{t_max}")
+    plt.savefig(f"p11_results/{export_name}/{export_name}_{t}.png")
+    plt.close()
 
 
-# plot_data_and_som(path1, weights, t_max, t_max)
-# plt.show()
+def train_som(data, k, t_max, plot_fn, plot_every):
+    def eta(t):
+        return 1 - t / t_max
+
+    def sigma(t):
+        return np.exp(-t/t_max)
+
+    # initialize weights with random samples
+    weights = np.array(random.sample(list(data), k))
+
+    plot_fn(weights, 0)
+
+    for t in tqdm(range(t_max)):
+        x = random.choice(data)
+        i = np.argmin(np.linalg.norm(weights - x, axis=1))
+
+        for j in range(k):
+            weights[j] += eta(t) * np.exp(-dist(i,j,k)/(2*sigma(t))) * (x - weights[j])
+
+        if (t+1) % plot_every == 0:
+            plot_fn(weights, t+1)
+
+    if t_max % plot_every != 0:
+        plot_fn(weights, t_max)
+
+
+train_som(path, k, t_max, plot_fn=plot_data_and_som, plot_every=1000)
