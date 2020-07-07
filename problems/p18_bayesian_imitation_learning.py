@@ -34,7 +34,8 @@ t_max = 1000
 states = batch_train_som(path, k=kS, t_max=t_max, dist_fn=partial(dist, k2=kS // 2),
                          plot_fn=lambda *args: None, plot_every=np.inf)
 state_indices = np.argmin(scipy.spatial.distance.cdist(path, states), axis=1)
-plot_data_and_som(path, states, t=t_max, t_max=t_max, export_name=None)
+plot_data_and_som(path, states, dist_fn=partial(dist, k2=kS // 2),
+                  t=t_max, t_max=t_max, export_name=None)
 
 counter = Counter((s, a) for s, a in zip(state_indices, ap_indices))
 p = np.zeros((kS, kA))
@@ -52,11 +53,10 @@ eta = 0.9
 for t in range(1, T):
     st = np.argmin(np.linalg.norm(x[t - 1] - states, axis=1), axis=0)
     # we don't need to normalize the probs here, because relatively they stay the same
-    at = random.choices(range(kA), weights=p[st,:])
+    at = random.choices(range(kA), weights=p[st, :])
     v1 = action_primitives[at]
-    v2 = states[st] - x[t-1]
-    x[t] = x[t-1] + eta * v1 + (1-eta) *v2
-
+    v2 = states[st] - x[t - 1]
+    x[t] = x[t - 1] + eta * v1 + (1 - eta) * v2
 
 fig = plt.figure(figsize=(5, 5))
 ax = Axes3D(fig)

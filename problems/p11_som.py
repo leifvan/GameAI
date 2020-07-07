@@ -7,6 +7,8 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from tqdm import tqdm
 
+from som_utils import plot_som
+
 
 def load_path_csv(path):
     with open(path) as file:
@@ -15,13 +17,12 @@ def load_path_csv(path):
     return np.array(items, dtype=np.float)
 
 
-def plot_data_and_som(data, weights, t, export_name):
-    fig = plt.figure()
+def plot_data_and_som(data, weights, t, t_max, export_name, dist_fn):
+    fig = plt.figure(figsize=(5,5))
     ax = Axes3D(fig)
+    ax.view_init(elev=45, azim=45)
     ax.scatter(data[:, 0], data[:, 1], data[:, 2], alpha=0.1, c='black', marker='o')
-    ax.scatter(weights[:, 0], weights[:, 1], weights[:, 2], c='blue', marker='o')
-    ax.plot(weights[:, 0], weights[:, 1], weights[:, 2], c='blue', marker='o')
-    ax.plot(weights[(-1, 0), 0], weights[(-1, 0), 1], weights[(-1, 0), 2], c='blue', marker='o')
+    plot_som(weights, dist_fn, ax)
     plt.title(f"k={len(weights)}, iteration {t}/{t_max}")
     plt.savefig(f"p11_results/{export_name}/{export_name}_{t}.png")
     plt.close()
@@ -73,5 +74,8 @@ if __name__ == '__main__':
             os.makedirs(f"p11_results/{export_name}", exist_ok=True)
 
             train_som(path, k, t_max, dist_fn=partial(dist_circle, k=k),
-                      plot_fn=partial(plot_data_and_som, export_name=export_name),
+                      plot_fn=partial(plot_data_and_som,
+                                      dist_fn=partial(dist_circle, k=k),
+                                      export_name=export_name,
+                                      t_max=t_max),
                       plot_every=1000)
