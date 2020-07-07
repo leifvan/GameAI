@@ -66,7 +66,7 @@ def batch_train_som(data, k, t_max, dist_fn, plot_fn, plot_every):
 if __name__ == '__main__':
     path = load_path_csv("../data/q3dm1-path2.csv")
 
-    for k in [6]:
+    for k in [6,10,20,50]:
         print("k =",k)
         k2 = k // 2
         t_max = 20000
