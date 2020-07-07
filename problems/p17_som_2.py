@@ -17,7 +17,8 @@ from p11_som import load_path_csv, train_som, dist_circle
 #     return min(abs(i - j), abs(k // 2 + i - j))
 
 
-def plot_data_and_som(data, weights, t, export_name):
+def plot_data_and_som(data, weights, t, t_max, export_name):
+    k2 = len(weights) // 2
     fig = plt.figure(figsize=(5, 5))
     ax = Axes3D(fig)
     ax.view_init(elev=45, azim=45)
@@ -32,8 +33,11 @@ def plot_data_and_som(data, weights, t, export_name):
     ax.plot(weights[(k2, 0), 0], weights[(k2, 0), 1], weights[(k2, 0), 2], c='blue', marker='o')
 
     plt.title(f"k={len(weights)}, iteration {t}/{t_max}")
-    plt.savefig(f"p17_results/{export_name}/{export_name}_{t}.png")
-    plt.close()
+    if export_name is None:
+        plt.show()
+    else:
+        plt.savefig(f"p17_results/{export_name}/{export_name}_{t}.png")
+        plt.close()
 
 
 def batch_train_som(data, k, t_max, dist_fn, plot_fn, plot_every):
@@ -59,8 +63,15 @@ def batch_train_som(data, k, t_max, dist_fn, plot_fn, plot_every):
     if t_max % plot_every != 0:
         plot_fn(data, weights, t_max)
 
+    return weights
 
-# batch_train_som(path, k, t_max, dist_fn=dist, plot_fn=plot_data_and_som, plot_every=1000)
+def dist(i, j, k2):
+    if i < k2 and j < k2 or i >= k2 and j >= k2:  # both on one ring
+        return dist_circle(i, j, k2)
+    else:  # on different rings
+        ci, cj = i // k2, (j // k2) * k2  # 0 if on left right, k2 if on right ring
+        return dist_circle(i, ci, k2) + dist_circle(j, cj, k2) + 1
+
 
 
 if __name__ == '__main__':
@@ -73,15 +84,6 @@ if __name__ == '__main__':
         export_name = f"plot_k{k}"
         os.makedirs(f"p17_results/{export_name}", exist_ok=True)
 
-
-        def dist(i, j):
-            if i < k2 and j < k2 or i >= k2 and j >= k2:  # both on one ring
-                return dist_circle(i, j, k2)
-            else:  # on different rings
-                ci, cj = i // k2, (j // k2) * k2  # 0 if on left right, k2 if on right ring
-                return dist_circle(i, ci, k2) + dist_circle(j, cj, k2) + 1
-
-
         # ---------
         # task 17.1
         # ---------
@@ -90,7 +92,7 @@ if __name__ == '__main__':
         os.makedirs(f"p17_results/{export_name}", exist_ok=True)
 
         train_som(path, k, t_max, dist_fn=dist,
-                  plot_fn=partial(plot_data_and_som, export_name=export_name),
+                  plot_fn=partial(plot_data_and_som, t_max=t_max, export_name=export_name),
                   plot_every=1000)
 
         # ---------
@@ -100,6 +102,6 @@ if __name__ == '__main__':
         export_name = f"plot_batch_k{k}"
         os.makedirs(f"p17_results/{export_name}", exist_ok=True)
 
-        batch_train_som(path, k, t_max, dist_fn=dist,
-                        plot_fn=partial(plot_data_and_som, export_name=export_name),
+        batch_train_som(path, k, t_max, dist_fn=partial(dist, k2=k2),
+                        plot_fn=partial(plot_data_and_som, t_max=t_max, export_name=export_name),
                         plot_every=1000)
