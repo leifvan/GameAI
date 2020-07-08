@@ -18,11 +18,10 @@ def plot_data_and_som(data, weights, t, t_max, export_name, dist_fn):
     ax.view_init(elev=45, azim=45)
     ax.scatter(data[:, 0], data[:, 1], data[:, 2], alpha=0.1, c='black', marker='o')
     plot_som(weights, dist_fn, ax)
-    plt.title(f"k={len(weights)}, iteration {t}/{t_max}")
+    if t is not None and t_max is not None:
+        plt.title(f"k={len(weights)}, iteration {t}/{t_max}")
 
-    if export_name is None:
-        plt.show()
-    else:
+    if export_name is not None:
         plt.savefig(f"p17_results/{export_name}/{export_name}_{t}.png")
         plt.close()
 
