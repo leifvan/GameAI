@@ -60,6 +60,8 @@ def train_som(data, k, t_max, dist_fn, plot_fn, plot_every):
     if t_max % plot_every != 0:
         plot_fn(data, weights, t_max)
 
+    return weights
+
 
 if __name__ == '__main__':
     paths = {'path1': load_path_csv("../data/q3dm1-path1.csv"),

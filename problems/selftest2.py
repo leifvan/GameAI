@@ -26,7 +26,7 @@ plt.show()
 # som error
 
 distances = cdist(path, weights)
-shortest = np.min(distances, axis=1)
+shortest = np.min(distances, axis=1)**2
 error = shortest.mean()
 
 print("som error")
